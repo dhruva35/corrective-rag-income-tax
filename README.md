@@ -10,6 +10,9 @@
 
 ---
 
+> [!NOTE]
+> **Live Demo Limitation:** The deployed UI is a Proof of Concept built over a very small, specific corpus (only 4 markdown files containing specific tax provisions). If you ask general questions (e.g., "What is income tax?"), the CRAG grader will correctly reject the specific retrieved chunks and respond with *"I don't know"*. This is the anti-hallucination feature working exactly as designed! To answer general questions, you would simply ingest a broader set of source documents.
+
 ## What This Is
 
 A **RAG (Retrieval-Augmented Generation)** system that answers questions about the Indian Income Tax Act 2025. Unlike a standard RAG pipeline, this implements **CRAG (Corrective RAG)** — a self-correcting architecture that:
