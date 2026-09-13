@@ -1,0 +1,18 @@
+[
+  {
+    "question": "What investments are eligible for deduction under Section 123 of the Income Tax Act 2025?",
+    "ground_truth": "Section 123 allows deductions for investments listed in Schedule XV, up to Rs. 1,50,000. Eligible investments include: Life Insurance Premium, Public Provident Fund (PPF), Employees' Provident Fund (EPF), Equity Linked Savings Scheme (ELSS) with 3-year lock-in, National Savings Certificate (NSC), Home Loan Principal Repayment, and Tuition Fees for up to two children at educational institutions in India."
+  },
+  {
+    "question": "Can I claim deductions under both Section 123 and Section 124(1B) for NPS in the same tax year? What is the combined maximum?",
+    "ground_truth": "Yes. Section 123 allows a deduction up to Rs. 1,50,000 for investments listed in Schedule XV. Section 124(1B) allows an additional deduction of up to Rs. 50,000 specifically for contributions to the National Pension System, independent of Section 123. However, NPS contributions under Section 124(1) count within the Rs. 1,50,000 ceiling. The effective combined maximum is Rs. 2,00,000."
+  },
+  {
+    "question": "What is the equivalent of old Section 80C in the new Income Tax Act 2025?",
+    "ground_truth": "Section 80C of the Income Tax Act 1961 has been replaced by Section 123 of the Income Tax Act 2025. The deduction limit remains Rs. 1,50,000 per tax year. The eligible investments are now listed in Schedule XV instead of within the section body."
+  },
+  {
+    "question": "Is a listed equity share held for 10 months considered a short-term or long-term capital asset?",
+    "ground_truth": "It is a short-term capital asset. Under Section 2(42A), the default holding period for short-term classification is 36 months. However, for a security listed on a recognised stock exchange, the threshold is reduced to 12 months. Since 10 months is less than 12 months, the listed equity share is a short-term capital asset."
+  }
+]

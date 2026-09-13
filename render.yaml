@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: corrective-rag-income-tax
+    runtime: docker
+    # Render reads the Dockerfile automatically.
+    # Set GOOGLE_API_KEY in the Render dashboard under Environment → Add variable.
+    # It's passed as a Docker build arg so ingestion runs during image build.
+    dockerBuildArgs:
+      GOOGLE_API_KEY: $GOOGLE_API_KEY
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false    # You paste this in Render's dashboard — never hardcode it
+    healthCheckPath: /health

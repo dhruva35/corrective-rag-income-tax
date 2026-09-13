@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tax AI — Income Tax Act 2025</title>
+  <meta name="description" content="Ask questions about the Indian Income Tax Act 2025. Powered by a CRAG (Corrective RAG) pipeline built with LangChain and LangGraph." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ─────────────────────────────────── */
+    :root {
+      --bg:          #080810;
+      --surface:     #10101c;
+      --surface-2:   #181828;
+      --surface-3:   #1e1e32;
+      --border:      #2a2a45;
+      --border-2:    #363660;
+      --accent:      #6366f1;
+      --accent-glow: rgba(99,102,241,0.35);
+      --accent-2:    #818cf8;
+      --green:       #10b981;
+      --green-bg:    rgba(16,185,129,0.12);
+      --red:         #f43f5e;
+      --red-bg:      rgba(244,63,94,0.12);
+      --yellow:      #f59e0b;
+      --text:        #e2e8f0;
+      --text-2:      #94a3b8;
+      --text-3:      #64748b;
+      --radius:      12px;
+      --radius-sm:   8px;
+      --shadow:      0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    /* ── Reset ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+    button { cursor: pointer; font-family: inherit; }
+    input, textarea { font-family: inherit; }
+
+    /* ── Layout ────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: 64px 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: 64px 1fr auto; }
+      .trace-panel { display: none; }
+      .trace-panel.show { display: flex; }
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .brand-title { font-size: 16px; font-weight: 700; }
+    .brand-sub { font-size: 11px; color: var(--text-3); font-weight: 400; }
+    .header-pill {
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(16,185,129,0.25);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .header-pill::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Chat panel ────────────────────────────────────── */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+    }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* Welcome screen */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      text-align: center;
+      gap: 20px;
+      padding: 40px 20px;
+      animation: fadeIn 0.5s ease;
+    }
+    .welcome-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 0 40px var(--accent-glow);
+    }
+    .welcome h1 { font-size: 28px; font-weight: 700; }
+    .welcome p { color: var(--text-2); max-width: 420px; line-height: 1.6; }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .suggestion-chip {
+      padding: 10px 16px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .suggestion-chip:hover {
+      background: var(--surface-3);
+      border-color: var(--accent);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    /* Message bubbles */
+    .message { display: flex; flex-direction: column; gap: 6px; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .message.user { align-items: flex-end; }
+    .message.assistant { align-items: flex-start; }
+
+    .bubble {
+      max-width: 80%;
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      line-height: 1.65;
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .message.user .bubble {
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .message.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      color: var(--text);
+    }
+    .bubble strong { color: inherit; font-weight: 600; }
+
+    /* Cursor blink when streaming */
+    .cursor {
+      display: inline-block;
+      width: 2px; height: 16px;
+      background: var(--accent-2);
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-left: 2px;
+      animation: blink 0.9s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Pipeline status (inside assistant bubble, below answer) */
+    .pipeline-status {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .node-badge {
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 99px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .node-badge.waiting { background: var(--surface-3); color: var(--text-3); }
+    .node-badge.running { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+    .node-badge.done    { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+    .node-badge.error   { background: var(--red-bg); color: var(--red); border: 1px solid rgba(244,63,94,0.25); }
+
+    /* Input area */
+    .input-area {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .input-row {
+      display: flex;
+      gap: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      transition: border-color 0.2s;
+    }
+    .input-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .input-row textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 14px;
+      resize: none;
+      min-height: 24px;
+      max-height: 120px;
+      line-height: 1.5;
+    }
+    .input-row textarea::placeholder { color: var(--text-3); }
+    .send-btn {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+    .send-btn:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 0 16px var(--accent-glow); }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .input-hint { font-size: 11px; color: var(--text-3); margin-top: 8px; text-align: center; }
+
+    /* ── Trace panel ────────────────────────────────────── */
+    .trace-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .trace-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-2);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .trace-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .trace-body::-webkit-scrollbar { width: 4px; }
+    .trace-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* Empty trace */
+    .trace-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      text-align: center;
+      color: var(--text-3);
+      gap: 10px;
+      font-size: 13px;
+      padding: 40px 20px;
+    }
+    .trace-empty .icon { font-size: 36px; }
+
+    /* Trace sections */
+    .trace-section { display: flex; flex-direction: column; gap: 10px; }
+    .trace-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-3);
+    }
+
+    /* Graph flow */
+    .graph-flow {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .flow-node {
+      font-size: 11px; font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 99px;
+      transition: all 0.3s;
+    }
+    .flow-node.idle    { background: var(--surface-3); color: var(--text-3); }
+    .flow-node.active  { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+    .flow-node.success { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+    .flow-arrow { color: var(--text-3); font-size: 12px; }
+
+    /* Rewritten query */
+    .rewrite-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.6;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Grade results */
+    .grade-list { display: flex; flex-direction: column; gap: 6px; }
+    .grade-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .grade-item.yes { background: var(--green-bg); border: 1px solid rgba(16,185,129,0.2); }
+    .grade-item.no  { background: var(--red-bg);   border: 1px solid rgba(244,63,94,0.2); }
+    .grade-icon { font-size: 14px; flex-shrink: 0; }
+    .grade-source { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .grade-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .grade-item.yes .grade-badge { background: rgba(16,185,129,0.2); color: var(--green); }
+    .grade-item.no  .grade-badge { background: rgba(244,63,94,0.2);  color: var(--red); }
+
+    /* Sources */
+    .source-list { display: flex; flex-direction: column; gap: 6px; }
+    .source-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: var(--text-2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .source-item span { font-size: 14px; }
+
+    /* Scrollbar */
+    .messages::-webkit-scrollbar, .trace-body::-webkit-scrollbar { width: 5px; }
+    .messages::-webkit-scrollbar-track, .trace-body::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb, .trace-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ── Header ────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="logo">⚖️</div>
+      <div>
+        <div class="brand-title">Tax AI Assistant</div>
+        <div class="brand-sub">Income Tax Act 2025 · CRAG Pipeline</div>
+      </div>
+    </div>
+    <div class="header-pill" id="status-pill">API Connected</div>
+  </header>
+
+  <!-- ── Chat panel ─────────────────────────────────────── -->
+  <main class="chat-panel">
+    <div class="messages" id="messages">
+      <!-- Welcome screen -->
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">⚖️</div>
+        <h1>Ask the Tax AI</h1>
+        <p>Ask any question about the Indian Income Tax Act 2025. The AI uses a multi-step pipeline to find, verify, and generate accurate answers.</p>
+        <div class="suggestions">
+          <button class="suggestion-chip" onclick="submitSuggestion(this)">What investments qualify under Section 123?</button>
+          <button class="suggestion-chip" onclick="submitSuggestion(this)">What is the holding period for a short-term capital asset?</button>
+          <button class="suggestion-chip" onclick="submitSuggestion(this)">What is the new Section equivalent to old 80C?</button>
+          <button class="suggestion-chip" onclick="submitSuggestion(this)">Is a listed equity share held for 10 months short-term?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea
+          id="question-input"
+          rows="1"
+          placeholder="Ask a question about the Income Tax Act 2025…"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendQuestion()" title="Send (Enter)">
+          ➤
+        </button>
+      </div>
+      <p class="input-hint">Press <kbd style="font-family:monospace;background:var(--surface-3);padding:1px 5px;border-radius:4px;font-size:11px">Enter</kbd> to send · <kbd style="font-family:monospace;background:var(--surface-3);padding:1px 5px;border-radius:4px;font-size:11px">Shift+Enter</kbd> for new line</p>
+    </div>
+  </main>
+
+  <!-- ── Pipeline trace panel ───────────────────────────── -->
+  <aside class="trace-panel" id="trace-panel">
+    <div class="trace-header">
+      🔍 Pipeline Trace
+    </div>
+    <div class="trace-body" id="trace-body">
+      <div class="trace-empty" id="trace-empty">
+        <div class="icon">🕵️</div>
+        <div>Ask a question to see the<br/>pipeline trace here</div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  const API = '';  // relative URL — works locally AND on Render with no changes
+  let isLoading = false;
+
+  // ── Auto-resize textarea ──────────────────────────────
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  }
+
+  function submitSuggestion(btn) {
+    document.getElementById('question-input').value = btn.textContent;
+    sendQuestion();
+  }
+
+  // ── Hide welcome, show chat ───────────────────────────
+  function hideWelcome() {
+    const w = document.getElementById('welcome');
+    if (w) w.remove();
+  }
+
+  // ── Append a message bubble ───────────────────────────
+  function appendMessage(role, html = '') {
+    hideWelcome();
+    const wrap = document.createElement('div');
+    wrap.className = `message ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = html;
+    wrap.appendChild(bubble);
+    document.getElementById('messages').appendChild(wrap);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function scrollToBottom() {
+    const m = document.getElementById('messages');
+    m.scrollTop = m.scrollHeight;
+  }
+
+  // ── Update pipeline trace panel ───────────────────────
+  const NODES = ['rewrite', 'retrieve', 'grade_docs', 'generate'];
+  let nodeState = {};
+
+  function resetTrace() {
+    nodeState = { rewrite: 'idle', retrieve: 'idle', grade_docs: 'idle', generate: 'idle' };
+    document.getElementById('trace-empty')?.remove();
+    const body = document.getElementById('trace-body');
+    body.innerHTML = '';
+
+    // Graph flow
+    const sec1 = document.createElement('div');
+    sec1.className = 'trace-section';
+    sec1.innerHTML = `<div class="trace-label">Graph Flow</div><div class="graph-flow" id="graph-flow"></div>`;
+    body.appendChild(sec1);
+    renderFlow();
+
+    // Rewritten query
+    const sec2 = document.createElement('div');
+    sec2.className = 'trace-section';
+    sec2.id = 'rewrite-section';
+    sec2.innerHTML = `<div class="trace-label">Rewritten Query</div><div class="rewrite-box" id="rewrite-box" style="color:var(--text-3);font-style:italic">Waiting…</div>`;
+    body.appendChild(sec2);
+
+    // Doc grades
+    const sec3 = document.createElement('div');
+    sec3.className = 'trace-section';
+    sec3.id = 'grade-section';
+    sec3.innerHTML = `<div class="trace-label">Document Grades</div><div class="grade-list" id="grade-list"><div style="color:var(--text-3);font-size:12px">Waiting for retrieval…</div></div>`;
+    body.appendChild(sec3);
+
+    // Sources
+    const sec4 = document.createElement('div');
+    sec4.className = 'trace-section';
+    sec4.id = 'source-section';
+    sec4.innerHTML = `<div class="trace-label">Sources Used</div><div class="source-list" id="source-list"><div style="color:var(--text-3);font-size:12px">Waiting for generation…</div></div>`;
+    body.appendChild(sec4);
+  }
+
+  function renderFlow() {
+    const labels = { rewrite: 'Rewrite', retrieve: 'Retrieve', grade_docs: 'Grade', generate: 'Generate' };
+    const flow = document.getElementById('graph-flow');
+    if (!flow) return;
+    flow.innerHTML = '';
+    NODES.forEach((n, i) => {
+      const badge = document.createElement('span');
+      badge.className = `flow-node ${nodeState[n] || 'idle'}`;
+      badge.id = `flow-${n}`;
+      badge.textContent = labels[n];
+      flow.appendChild(badge);
+      if (i < NODES.length - 1) {
+        const arrow = document.createElement('span');
+        arrow.className = 'flow-arrow';
+        arrow.textContent = '→';
+        flow.appendChild(arrow);
+      }
+    });
+  }
+
+  function setNodeState(node, state) {
+    nodeState[node] = state;
+    const el = document.getElementById(`flow-${node}`);
+    if (el) { el.className = `flow-node ${state}`; }
+  }
+
+  function setRewrittenQuery(text) {
+    const el = document.getElementById('rewrite-box');
+    if (el) { el.textContent = text; el.style.color = ''; el.style.fontStyle = ''; }
+  }
+
+  function addGradeItem(source, grade) {
+    const list = document.getElementById('grade-list');
+    if (!list) return;
+    // Clear "waiting" placeholder
+    if (list.querySelector('div:not(.grade-item)')) list.innerHTML = '';
+    const item = document.createElement('div');
+    item.className = `grade-item ${grade}`;
+    const shortSource = source.split('/').pop(); // just filename
+    item.innerHTML = `
+      <span class="grade-icon">${grade === 'yes' ? '✅' : '❌'}</span>
+      <span class="grade-source" title="${source}">${shortSource}</span>
+      <span class="grade-badge">${grade.toUpperCase()}</span>
+    `;
+    list.appendChild(item);
+  }
+
+  function setSources(sources) {
+    const list = document.getElementById('source-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!sources.length) {
+      list.innerHTML = '<div style="color:var(--text-3);font-size:12px">No relevant sources found</div>';
+      return;
+    }
+    sources.forEach(src => {
+      const item = document.createElement('div');
+      item.className = 'source-item';
+      item.innerHTML = `<span>📄</span>${src}`;
+      list.appendChild(item);
+    });
+  }
+
+  // ── Send question ─────────────────────────────────────
+  async function sendQuestion() {
+    const input = document.getElementById('question-input');
+    const question = input.value.trim();
+    if (!question || isLoading) return;
+
+    isLoading = true;
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('send-btn').disabled = true;
+
+    // User bubble
+    appendMessage('user', escapeHtml(question));
+
+    // Assistant bubble with cursor
+    const bubble = appendMessage('assistant', '<span class="cursor"></span>');
+    let answerText = '';
+
+    // Reset pipeline trace
+    resetTrace();
+
+    try {
+      const response = await fetch(`${API}/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            handleEvent(evt, bubble, () => { answerText = ''; });
+            if (evt.event === 'answer_chunk') {
+              answerText += evt.text;
+              bubble.innerHTML = markdownToHtml(answerText) + '<span class="cursor"></span>';
+              scrollToBottom();
+            }
+          } catch { /* incomplete JSON, ignore */ }
+        }
+      }
+
+      // Final: remove cursor
+      bubble.innerHTML = markdownToHtml(answerText) || '<em style="color:var(--text-3)">I don\'t know.</em>';
+
+    } catch (err) {
+      bubble.innerHTML = `<span style="color:var(--red)">⚠ Error: ${escapeHtml(err.message)}<br>Make sure the server is running: <code>uvicorn app.main:app --reload --port 8000</code></span>`;
+      document.getElementById('status-pill').textContent = '⚠ Disconnected';
+      document.getElementById('status-pill').style.cssText = 'background:var(--red-bg);color:var(--red);border-color:rgba(244,63,94,0.25)';
+    } finally {
+      isLoading = false;
+      document.getElementById('send-btn').disabled = false;
+      input.focus();
+    }
+  }
+
+  // ── Handle SSE events ─────────────────────────────────
+  function handleEvent(evt) {
+    switch (evt.event) {
+      case 'pipeline_start':
+        break;
+      case 'stage':
+        // Map node name to state
+        const nodeMap = { rewrite: 'rewrite', retrieve: 'retrieve', grade_docs: 'grade_docs', generate: 'generate', transform_query: 'grade_docs' };
+        const activeNode = nodeMap[evt.node];
+        if (activeNode) {
+          // Mark previous nodes done
+          const idx = NODES.indexOf(activeNode);
+          NODES.slice(0, idx).forEach(n => setNodeState(n, 'success'));
+          setNodeState(activeNode, 'active');
+        }
+        if (evt.node === 'rewrite') setRewrittenQuery('Rewriting…');
+        break;
+      case 'grade_result':
+        addGradeItem(evt.source, evt.grade);
+        break;
+      case 'done':
+        // Mark all done
+        NODES.forEach(n => setNodeState(n, 'success'));
+        if (evt.rewritten_query) setRewrittenQuery(evt.rewritten_query);
+        if (evt.sources) setSources(evt.sources);
+        break;
+      case 'error':
+        console.error('Pipeline error:', evt.message);
+        break;
+    }
+  }
+
+  // ── Minimal markdown renderer ─────────────────────────
+  function markdownToHtml(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code style="background:var(--surface-3);padding:1px 5px;border-radius:4px;font-family:JetBrains Mono,monospace;font-size:12px">$1</code>')
+      .replace(/^(\d+)\. (.+)$/gm, '<div style="margin:4px 0"><strong>$1.</strong> $2</div>')
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function escapeHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Check API health on load ──────────────────────────
+  (async () => {
+    try {
+      const r = await fetch(`${API}/health`);
+      const d = await r.json();
+      if (d.status === 'ok') {
+        document.getElementById('status-pill').textContent = '● API Connected';
+      }
+    } catch {
+      const pill = document.getElementById('status-pill');
+      pill.textContent = '⚠ API Offline';
+      pill.style.cssText = 'background:var(--red-bg);color:var(--red);border-color:rgba(244,63,94,0.25)';
+    }
+  })();
+</script>
+</body>
+</html>
