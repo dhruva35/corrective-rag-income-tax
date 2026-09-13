@@ -16,6 +16,7 @@ COPY . .
 # GOOGLE_API_KEY must be passed as a build arg for the embedding calls.
 ARG GOOGLE_API_KEY
 ENV GOOGLE_API_KEY=${GOOGLE_API_KEY}
+ENV PYTHONPATH=/app
 RUN python scripts/ingest.py
 
 EXPOSE 8000
